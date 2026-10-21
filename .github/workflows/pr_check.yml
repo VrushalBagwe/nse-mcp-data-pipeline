@@ -1,0 +1,40 @@
+name: dbt CI/CD Check
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'dbt_project/**'
+
+jobs:
+  lint_and_test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install dbt-bigquery sqlfluff sqlfluff-templater-dbt
+
+      - name: Lint dbt models with SQLFluff
+        working-directory: ./dbt_project
+        run: |
+          sqlfluff lint models/
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+      - name: Run dbt test against CI dataset
+        working-directory: ./dbt_project
+        run: |
+          dbt deps
+          dbt build --target ci
